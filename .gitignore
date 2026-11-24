@@ -1,0 +1,7 @@
+# local preview settings, not part of the website
+.claude/
+desktop.ini
+# not used by the site
+avatar.svg
+# only upload once you own hitisaac.fyi (otherwise GitHub redirects to a domain that doesn't exist yet)
+CNAME
