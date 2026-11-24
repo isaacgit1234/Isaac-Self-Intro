@@ -5,3 +5,5 @@ desktop.ini
 avatar.svg
 # only upload once you own hitisaac.fyi (otherwise GitHub redirects to a domain that doesn't exist yet)
 CNAME
+# the GitHub profile README has its own repo (isaacgit1234/isaacgit1234)
+profile-readme/
