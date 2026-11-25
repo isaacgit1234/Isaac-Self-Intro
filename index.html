@@ -712,6 +712,21 @@
   .badge-hint { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); color: #fff; font: 600 14px "Fredoka", sans-serif; opacity: .85; white-space: nowrap; }
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+
+  /* ================= resume viewer for phones (no browser back button there) ================= */
+  #docView { position: fixed; inset: 0; z-index: 90; display: none; flex-direction: column; background: #e9e4da; }
+  #docView.open { display: flex; }
+  #docView .bar {
+    display: flex; align-items: center; gap: 12px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+    background: var(--paper); border-bottom: 2px solid var(--ink); font: 700 17px "Fredoka", sans-serif;
+  }
+  #docView .bar button {
+    font: 700 16px "Fredoka", sans-serif; color: var(--ink); background: #fff; border: 2px solid var(--ink);
+    border-radius: 99px; padding: 8px 16px; box-shadow: 0 3px 0 #0003; cursor: pointer;
+  }
+  #docView .pages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 10px calc(24px + env(safe-area-inset-bottom)); }
+  #docView canvas { display: block; width: 100%; height: auto; margin: 0 auto 12px; background: #fff; box-shadow: 0 2px 8px #0003; }
+  #docView .msg { text-align: center; padding: 40px 16px; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -967,6 +982,10 @@
 
 </div><!-- /#game -->
 
+<div id="docView" role="dialog" aria-modal="true" aria-label="Resume">
+  <div class="bar"><button type="button" id="docBack">← Back</button><span id="docTitle">Resume</span></div>
+  <div class="pages" id="docPages"></div>
+</div>
 <dialog id="panel"><div class="sheet" id="sheet"></div></dialog>
 
 
@@ -1946,8 +1965,64 @@ function activate(key) {
   const c = CHIPS[key]; if (!c) return;
   if (c.road) { target = PLAYER_START; return enterRoad(null, true); }
   if (c.panel) return openInfo(key);
+  if (c.href && openDoc(c.href)) return;
   if (c.href) c.href.startsWith("mailto:") ? (location.href = c.href) : window.open(c.href, "_blank", "noopener");
 }
+
+/* --- resume viewer: on phones and in the home screen app a PDF opens with no way back,
+   so show it in-page (drawn by PDF.js) under a Back button instead --- */
+function wantsDocViewer() {
+  return navigator.standalone === true || matchMedia("(display-mode: standalone)").matches || matchMedia("(hover: none)").matches;
+}
+let pdfjsReady = null;
+function loadPdfJs() {
+  if (!pdfjsReady) pdfjsReady = new Promise((ok, fail) => {
+    const base = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+    const sc = document.createElement("script");
+    sc.src = base + "pdf.min.js";
+    sc.onload = () => { pdfjsLib.GlobalWorkerOptions.workerSrc = base + "pdf.worker.min.js"; ok(pdfjsLib); };
+    sc.onerror = () => { pdfjsReady = null; fail(new Error("PDF viewer did not load")); };
+    document.head.appendChild(sc);
+  });
+  return pdfjsReady;
+}
+const docView = $("#docView"), docPages = $("#docPages");
+function openDoc(href) {
+  if (!/\.pdf($|[?#])/i.test(href) || !wantsDocViewer()) return false;
+  if (panel.open) panel.close();   // a modal panel would sit on top of the viewer
+  docPages.innerHTML = `<p class="msg">Opening the resume…</p>`;
+  docView.classList.add("open");
+  history.pushState({ doc: true }, "");
+  renderDoc(href);
+  return true;
+}
+async function renderDoc(href) {
+  try {
+    const lib = await loadPdfJs();
+    const pdf = await lib.getDocument(href).promise;
+    docPages.innerHTML = "";
+    const width = docPages.clientWidth - 20, dpr = Math.min(devicePixelRatio || 1, 3);
+    for (let n = 1; n <= pdf.numPages; n++) {
+      if (!docView.classList.contains("open")) return;   // closed while loading
+      const page = await pdf.getPage(n);
+      const vp = page.getViewport({ scale: (width / page.getViewport({ scale: 1 }).width) * dpr });
+      const cv = document.createElement("canvas");
+      cv.width = vp.width; cv.height = vp.height;
+      docPages.appendChild(cv);
+      await page.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
+    }
+  } catch {
+    docPages.innerHTML = `<p class="msg">Couldn't show the resume here. <a href="${href}" download>Download the PDF</a> instead.</p>`;
+  }
+}
+function closeDoc() { if (docView.classList.contains("open")) { docView.classList.remove("open"); docPages.innerHTML = ""; } }
+$("#docBack").onclick = () => { if (history.state?.doc) history.back(); else closeDoc(); };
+addEventListener("popstate", closeDoc);
+// any link to a PDF (the Resume buttons, the board's PDF) goes through the viewer
+document.addEventListener("click", (e) => {
+  const a = e.target.closest?.("a[href]");
+  if (a && openDoc(a.getAttribute("href"))) e.preventDefault();
+}, true);
 boardItems.forEach(it => {
   const key = it.dataset.key;
   const enter = () => { boardFocus(key); if (mode === "home" && STOP_FOR[key]) { target = STOP_FOR[key](); openOnArrive = null; } };
