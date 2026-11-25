@@ -2315,7 +2315,9 @@ $("#deck").onclick = () => { Sfx.play("soft"); Bgm.toggle(); };
 document.addEventListener("visibilitychange", () => document.hidden ? Bgm.hold("hidden") : Bgm.release("hidden"));
 addEventListener("pagehide", () => Bgm.hold("hidden"));
 $("#musicChip")?.addEventListener("click", () => Bgm.toggle());
-if (Bgm.wanted) {
+// opened from the home screen app: no autoplay, the record player still plays on a tap
+const isApp = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+if (Bgm.wanted && !isApp) {
   // try to play straight away; if the browser blocks sound, spin silently and turn sound on at the first click or key
   Bgm.start(false);
   const first = (e) => {
