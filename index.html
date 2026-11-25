@@ -417,6 +417,10 @@
   form.note { display: grid; gap: 8px; }
   form.note input, form.note textarea { font: inherit; border: 2px solid #1f243033; border-radius: 12px; padding: 10px 12px; background: #fff; resize: vertical; }
   form.note input:focus, form.note textarea:focus { outline: none; border-color: var(--accent); }
+  form.note .trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+  form.note .status { margin: 0; font-weight: 600; min-height: 1.2em; }
+  form.note .status.ok { color: var(--chosen); } form.note .status.err { color: #c0392b; }
+  form.note button:disabled { opacity: .6; cursor: wait; }
 
   @media (max-width: 720px) {
     :root { --road-h: 96px; }
@@ -2177,12 +2181,7 @@ function openStop(i) {
   sheet.querySelector("[data-badge]")?.addEventListener("click", () => { panel.close(); openBadge(); });
   sheet.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { panel.close(); walkTo(+b.dataset.go, true); });
   const form = sheet.querySelector("form.note");
-  if (form) form.onsubmit = (e) => {
-    e.preventDefault();
-    const f = new FormData(form);
-    const subj = encodeURIComponent("Hello from your road" + (f.get("name") ? " — " + f.get("name") : ""));
-    location.href = `mailto:${CONTACT.email}?subject=${subj}&body=${encodeURIComponent(f.get("msg"))}`;
-  };
+  if (form) form.onsubmit = (e) => { e.preventDefault(); postNote(form); };
   keys = {}; touchDir = 0;
   if (s.song) Bgm.hold("song");
   panel.showModal();
@@ -2192,10 +2191,41 @@ function contactBlock() {
       <a href="mailto:${CONTACT.email}">✉️ Email</a>
       <a href="${CONTACT.resume.file}" target="_blank" rel="noopener">📄 Resume</a></div>
     <form class="note">
-      <input name="name" placeholder="Your name (optional)" autocomplete="name">
-      <textarea name="msg" rows="4" placeholder="Drop a note in the mailbox…" required></textarea>
+      <input name="name" placeholder="Your name (optional)" autocomplete="name" maxlength="100">
+      <input name="email" type="email" placeholder="Your email, so I can reply" autocomplete="email" required maxlength="200">
+      <textarea name="message" rows="4" placeholder="Drop a note in the mailbox…" required maxlength="5000"></textarea>
+      <input class="trap" type="checkbox" name="botcheck" tabindex="-1" autocomplete="off" aria-hidden="true">
       <button class="big" type="submit" style="justify-self:start">Post it 📮</button>
+      <p class="status" role="status" aria-live="polite"></p>
     </form>`;
+}
+// the mailbox delivers straight to Isaac's inbox through Web3Forms (the access key is public by design:
+// it can only send mail to Isaac, never read it)
+const WEB3FORMS_KEY = "3b1a3f4e-c0b5-4ed9-9928-bcf357fdd460";
+async function postNote(form) {
+  const f = new FormData(form), btn = form.querySelector("button"), status = form.querySelector(".status");
+  if (f.get("botcheck")) return;   // a bot ticked the hidden box: drop it quietly
+  const name = (f.get("name") || "").trim();
+  btn.disabled = true; btn.textContent = "Posting…"; status.className = "status"; status.textContent = "";
+  try {
+    const res = await fetch("https://api.web3forms.com/submit", {
+      method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        access_key: WEB3FORMS_KEY,
+        subject: "📮 New note from your site" + (name ? " — " + name : ""),
+        from_name: "Isaac's mailbox", name: name || "(no name)",
+        email: f.get("email"), replyto: f.get("email"), message: f.get("message"),
+      }),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || !out.success) throw new Error(out.message || res.status);
+    form.reset(); status.className = "status ok"; status.textContent = "Delivered ✅ Thanks, I'll get back to you soon.";
+    btn.textContent = "Post another 📮";
+  } catch {
+    status.className = "status err";
+    status.innerHTML = `Couldn't send just now. Please email me at <a href="mailto:${CONTACT.email}">${CONTACT.email}</a>.`;
+    btn.textContent = "Try again 📮";
+  } finally { btn.disabled = false; }
 }
 panel.addEventListener("click", (e) => { if (e.target === panel) panel.close(); });
 // closing a panel stops any music playing in it
