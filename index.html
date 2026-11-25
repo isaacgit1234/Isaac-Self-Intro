@@ -41,7 +41,7 @@
 
   /* ================= landing page: a photo on the wall ================= */
   #game {
-    position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; z-index: 1; overflow: hidden;
+    position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; height: var(--app-h, 100dvh); z-index: 1; overflow: hidden;
     transform-origin: 0 0; touch-action: none; user-select: none; -webkit-user-select: none; background: #000;
   }
   body:not(.in-game) #game { pointer-events: none; }
@@ -391,7 +391,7 @@
   @keyframes pop { from { transform: translateY(24px) scale(.95); opacity: 0; } }
   .sheet {
     background: var(--paper); border: 3px solid var(--ink); border-radius: 22px; box-shadow: 0 8px 0 #0003;
-    padding: 24px 26px 26px; max-height: calc(100vh - 40px); overflow: auto; user-select: text; -webkit-user-select: text;
+    padding: 24px 26px 26px; max-height: calc(100vh - 40px); max-height: calc(var(--app-h, 100dvh) - 40px); overflow: auto; user-select: text; -webkit-user-select: text;
   }
   .sheet header { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; }
   .sheet .icon { font-size: 34px; line-height: 1; }
@@ -981,6 +981,20 @@
 </div>
 
 <script>
+/* --- the real screen height ------------------------------------------------
+   Safari's 100vh runs under its bottom toolbar, and an iPhone home screen app
+   reports a height one status bar short, so measure it and share it as --app-h. */
+const standaloneIOS = navigator.standalone === true;
+function appH() {
+  if (!standaloneIOS) return innerHeight;   // Safari & others: the area above the toolbars
+  const a = screen.width, b = screen.height;  // home screen app: the whole screen
+  return innerWidth > innerHeight ? Math.min(a, b) : Math.max(a, b);
+}
+function setAppH() { document.documentElement.style.setProperty("--app-h", appH() + "px"); }
+setAppH();
+addEventListener("resize", setAppH);
+addEventListener("orientationchange", () => setTimeout(() => { setAppH(); dispatchEvent(new Event("resize")); }, 300));
+
 /* =====================================================================
    ✏️  EDIT ME — your story. Stops appear along the road in this order.
    type: "building" (enter it) or "fork" (a crossroad: what you chose
@@ -1501,7 +1515,7 @@ function ridge(width, height, base, amp, step, color, extra = "") {
   return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><path d="${d}" fill="${color}"/>${extra}</svg>`;
 }
 function buildScenery() {
-  const h = innerHeight;
+  const h = appH();
   far.innerHTML = ridge(WORLD_W * .25 + innerWidth, h, h - 230, 160, 140, "#9bb6d6");
   near.innerHTML = ridge(WORLD_W * .55 + innerWidth, h, h - 170, 70, 60, "#88c08a");
   // stars
@@ -1771,7 +1785,7 @@ function fitBadge() {
   const hangIn = $("#hangIn");
   hangIn.style.setProperty("--fit", 1);
   const need = hangIn.scrollHeight + 24, wide = 460;
-  hangIn.style.setProperty("--fit", Math.min(1, innerHeight / need, (innerWidth - 16) / wide).toFixed(3));
+  hangIn.style.setProperty("--fit", Math.min(1, appH() / need, (innerWidth - 16) / wide).toFixed(3));
 }
 function openBadge() {
   renderCard();
@@ -2100,7 +2114,7 @@ addEventListener("keydown", (e) => {
 function frameFit() {
   const r = photo.getBoundingClientRect(), b = parseFloat(getComputedStyle(photo).borderTopWidth) || 0;
   const fx = r.left + b, fy = r.top + b, fw = r.width - 2 * b, fh = r.height - 2 * b;
-  const vw = innerWidth, vh = innerHeight, s = Math.max(fw / vw, fh / vh);
+  const vw = innerWidth, vh = appH(), s = Math.max(fw / vw, fh / vh);
   const w = fw / s, h = fh / s, l = (vw - w) / 2, t = vh - h;  // keep the road (bottom) in shot
   return {
     transform: `translate(${fx - s * l}px, ${fy - s * t}px) scale(${s})`,
