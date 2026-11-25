@@ -2213,7 +2213,7 @@ async function postNote(form) {
       body: JSON.stringify({
         access_key: WEB3FORMS_KEY,
         subject: "📮 New note from your site" + (name ? " — " + name : ""),
-        from_name: "Isaac's mailbox", name: name || "(no name)",
+        from_name: "self-intro-mailbox", name: name || "(no name)",
         email: f.get("email"), replyto: f.get("email"), message: f.get("message"),
       }),
     });
