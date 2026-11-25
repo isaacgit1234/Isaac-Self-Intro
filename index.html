@@ -17,7 +17,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Isaac">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#fffaf0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -982,14 +982,10 @@
 
 <script>
 /* --- the real screen height ------------------------------------------------
-   Safari's 100vh runs under its bottom toolbar, and an iPhone home screen app
-   reports a height one status bar short, so measure it and share it as --app-h. */
-const standaloneIOS = navigator.standalone === true;
-function appH() {
-  if (!standaloneIOS) return innerHeight;   // Safari & others: the area above the toolbars
-  const a = screen.width, b = screen.height;  // home screen app: the whole screen
-  return innerWidth > innerHeight ? Math.min(a, b) : Math.max(a, b);
-}
+   iPhone's 100vh is taller than what you can see (it runs under Safari's toolbar,
+   and under the status bar in the home screen app), so measure the visible area
+   and share it as --app-h. */
+function appH() { return innerHeight; }
 function setAppH() { document.documentElement.style.setProperty("--app-h", appH() + "px"); }
 setAppH();
 addEventListener("resize", setAppH);
